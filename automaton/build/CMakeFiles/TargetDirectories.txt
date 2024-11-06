@@ -1,0 +1,3 @@
+/home/sharovkv/Projects/University/Theory-of-formal-languages-and-translations/build/CMakeFiles/automaton.dir
+/home/sharovkv/Projects/University/Theory-of-formal-languages-and-translations/build/CMakeFiles/edit_cache.dir
+/home/sharovkv/Projects/University/Theory-of-formal-languages-and-translations/build/CMakeFiles/rebuild_cache.dir

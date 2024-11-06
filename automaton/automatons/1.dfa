@@ -1,0 +1,71 @@
+[
+  {
+    "source_state": 0,
+    "is_initial_state": true,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "~",
+        "next_states": [11]
+      }
+    ]
+  },
+  {
+    "source_state": 11,
+    "is_initial_state": false,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "0",
+        "next_states": [12]
+      },
+      {
+        "character": "1",
+        "next_states": [11]
+      }
+    ]
+  },
+  {
+    "source_state": 21,
+    "is_initial_state": false,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "0",
+        "next_states": [21]
+      },
+      {
+        "character": "1",
+        "next_states": [22]
+      }
+    ]
+  },
+  {
+    "source_state": 12,
+    "is_initial_state": false,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "~",
+        "next_states": [3]
+      }
+    ]
+  },
+  {
+    "source_state": 22,
+    "is_initial_state": false,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "~",
+        "next_states": [3]
+      }
+    ]
+  },
+  {
+    "source_state": 3,
+    "is_initial_state": false,
+    "is_final_state": true,
+    "moves": []
+  }
+]

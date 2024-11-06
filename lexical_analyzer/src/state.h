@@ -1,0 +1,13 @@
+#pragma once
+
+#include <cstdint>
+
+enum State : uint8_t {
+  START,
+  FINAL,
+  ERROR,
+  READING_CONSTANT,
+  READING_IDENTIFIER,
+  READING_OPERATOR_ASSIGNMENT_OR_EQUAL,
+  READING_OPERATOR_LESS_OR_NOT_EQUAL
+};

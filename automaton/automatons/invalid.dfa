@@ -1,0 +1,310 @@
+[
+  {
+    "source_state": 0,
+    "is_initial_state": true,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "~",
+        "next_states": [11, 21, 31]
+      }
+    ]
+  },
+  {
+    "source_state": 11,
+    "is_initial_state": false,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "0",
+        "next_states": [12]
+      },
+      {
+        "character": "1",
+        "next_states": [12]
+      },
+      {
+        "character": "2",
+        "next_states": [12]
+      },
+      {
+        "character": "3",
+        "next_states": [12]
+      },
+      {
+        "character": "4",
+        "next_states": [12]
+      },
+      {
+        "character": "5",
+        "next_states": [12]
+      },
+      {
+        "character": "6",
+        "next_states": [12]
+      },
+      {
+        "character": "7",
+        "next_states": [12]
+      },
+      {
+        "character": "8",
+        "next_states": [12]
+      },
+      {
+        "character": "9",
+        "next_states": [12]
+      }
+    ]
+  },
+  {
+    "source_state": 21,
+    "is_initial_state": false,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "0",
+        "next_states": [22]
+      },
+      {
+        "character": "1",
+        "next_states": [22]
+      }
+    ]
+  },
+  {
+    "source_state": 31,
+    "is_initial_state": false,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "0",
+        "next_states": [32]
+      },
+      {
+        "character": "1",
+        "next_states": [32]
+      },
+      {
+        "character": "2",
+        "next_states": [32]
+      },
+      {
+        "character": "3",
+        "next_states": [32]
+      },
+      {
+        "character": "4",
+        "next_states": [32]
+      },
+      {
+        "character": "5",
+        "next_states": [32]
+      },
+      {
+        "character": "6",
+        "next_states": [32]
+      },
+      {
+        "character": "7",
+        "next_states": [32]
+      },
+      {
+        "character": "8",
+        "next_states": [32]
+      },
+      {
+        "character": "9",
+        "next_states": [32]
+      }
+    ]
+  },
+  {
+    "source_state": 12,
+    "is_initial_state": false,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "0",
+        "next_states": [12]
+      },
+      {
+        "character": "1",
+        "next_states": [12]
+      },
+      {
+        "character": "2",
+        "next_states": [12]
+      },
+      {
+        "character": "3",
+        "next_states": [12]
+      },
+      {
+        "character": "4",
+        "next_states": [12]
+      },
+      {
+        "character": "5",
+        "next_states": [12]
+      },
+      {
+        "character": "6",
+        "next_states": [12]
+      },
+      {
+        "character": "7",
+        "next_states": [12]
+      },
+      {
+        "character": "8",
+        "next_states": [12]
+      },
+      {
+        "character": "9",
+        "next_states": [12]
+      },
+      {
+        "character": "~",
+        "next_states": [13]
+      },
+      {
+        "character": "d",
+        "next_states": [13]
+      }
+    ]
+  },
+  {
+    "source_state": 22,
+    "is_initial_state": false,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "0",
+        "next_states": [22]
+      },
+      {
+        "character": "1",
+        "next_states": [22]
+      },
+      {
+        "character": "b",
+        "next_states": [23]
+      }
+    ]
+  },
+  {
+    "source_state": 32,
+    "is_initial_state": false,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "0",
+        "next_states": [32]
+      },
+      {
+        "character": "1",
+        "next_states": [32]
+      },
+      {
+        "character": "2",
+        "next_states": [32]
+      },
+      {
+        "character": "3",
+        "next_states": [32]
+      },
+      {
+        "character": "4",
+        "next_states": [32]
+      },
+      {
+        "character": "5",
+        "next_states": [32]
+      },
+      {
+        "character": "6",
+        "next_states": [32]
+      },
+      {
+        "character": "7",
+        "next_states": [32]
+      },
+      {
+        "character": "8",
+        "next_states": [32]
+      },
+      {
+        "character": "9",
+        "next_states": [32]
+      },
+      {
+        "character": "a",
+        "next_states": [32]
+      },
+      {
+        "character": "b",
+        "next_states": [32]
+      },
+      {
+        "character": "c",
+        "next_states": [32]
+      },
+      {
+        "character": "d",
+        "next_states": [32]
+      },
+      {
+        "character": "e",
+        "next_states": [32]
+      },
+      {
+        "character": "f",
+        "next_states": [32]
+      },
+      {
+        "character": "h",
+        "next_states": [33]
+      }
+    ]
+  },
+  {
+    "source_state": 13,
+    "is_initial_state": false,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "~",
+        "next_states": [4]
+      }
+    ]
+  },
+  {
+    "source_state": 23,
+    "is_initial_state": false,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "~",
+        "next_states": [4]
+      }
+    ]
+  },
+  {
+    "source_state": 33,
+    "is_initial_state": false,
+    "is_final_state": false,
+    "moves": [
+      {
+        "character": "~",
+        "next_states": [4]
+      }
+    ]
+  },
+  {
+    "source_state": 4,
+    "is_initial_state": false,
+    "is_final_state": true,
+    "moves": []
+  }
+]
