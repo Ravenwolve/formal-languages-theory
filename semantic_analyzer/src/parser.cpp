@@ -291,7 +291,7 @@ SyntacticParser::ConditionalStatement(std::vector<Lexeme>::iterator &iter,
       sequence.RewriteAddress(indexOfNextIfBody, sequence.Size());
       auto optionalConditionalStatement =
           ConditionalStatement(iter, end, Lexeme::Type::ELSEIF);
-      if (!optionalConditionalStatement.has_value() |
+      if (!optionalConditionalStatement.has_value() ||
           !optionalConditionalStatement.value()) {
         return optionalConditionalStatement;
       }

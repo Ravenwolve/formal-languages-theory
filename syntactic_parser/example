@@ -1,7 +1,7 @@
 if a >b and b==c then
     input d;
 elseif a== b or b > c and c == 0 then
-    a=b*(500+c-200 * (a + b) / 2);
+    a=b*(500)+c-200 * (a + b) / 2);
     output a;
 else
     c = 500 + 150;
