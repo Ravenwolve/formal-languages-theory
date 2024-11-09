@@ -1,6 +1,5 @@
 #include "interpreter.h"
 #include <iostream>
-#include <optional>
 
 void Interpreter::Debug(Entry entry) {
   std::cerr << "Current entry: ";
@@ -96,11 +95,11 @@ int Interpreter::Value(const std::variant<int, std::string> &operand) {
 }
 
 bool Interpreter::Interprete(const std::string &text) {
-  auto record = parser.Parse(text);
-  if (!record.has_value()) {
+  const auto &[record, success] = parser.Parse(text);
+  if (!success) {
     return false;
   }
-  auto entries = std::move(record.value());
+  auto entries = std::move(record);
 
   for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
     Debug(*iter);
