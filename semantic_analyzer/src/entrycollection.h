@@ -13,8 +13,8 @@ public:
   size_t PushConstant(const std::string &value);
   size_t PushAddress(int value);
   void RewriteAddress(size_t index, int value);
-  size_t PushOpeningBracket();
-  size_t PushClosingBracket();
+  size_t PushOpeningParenthesis();
+  size_t PushClosingParenthesis();
   size_t Final();
   std::vector<Entry> ToVector();
   void Clear();

@@ -1,9 +1,9 @@
 #include "parser.h"
 #include <iostream>
-#include <optional>
 
-static void error(std::vector<Lexeme>::iterator &iter,
-                  const std::vector<Lexeme>::iterator &end,
+using Iterator = std::vector<Lexeme>::iterator;
+
+static void error(Iterator iter, const Iterator end,
                   const std::string &reason) {
   std::cerr << "syntax error: " << reason << '\n';
   for (auto item = iter; item != end; ++item) {
@@ -12,324 +12,433 @@ static void error(std::vector<Lexeme>::iterator &iter,
   std::cerr << "\033[1;31m" << end->value << "\033[0m\n";
 }
 
-bool SyntacticParser::Separator(std::vector<Lexeme>::iterator &iter,
-                                const std::vector<Lexeme>::iterator &end) {
-  if (iter->type != Lexeme::Type::SEPARATOR) {
-    return false;
+std::tuple<Iterator, bool> SyntacticParser::IfStatement(Iterator begin,
+                                                        Iterator end) {
+  if (!If(begin)) {
+    return {begin, false};
+  }
+
+  const auto &[endOfLogExpr, success1] = LogExpr(begin + 1, end);
+  if (!success1) {
+    error(begin, endOfLogExpr + 1,
+          "expected logical expression as condition in 'if' statement");
+    exit(1);
+  }
+
+  if (!Then(endOfLogExpr + 1)) {
+    error(begin, endOfLogExpr + 1,
+          "expected keyword 'then' after condition of 'if' statement");
+    exit(1);
+  }
+  size_t indexOfNextIf = sequence.PushAddress(-1);
+  sequence.Push(Entry::Command::JZ);
+  sequence.Final();
+
+  const auto &[endOfStatement, success2] = Statement(endOfLogExpr + 2, end);
+  if (!success2) {
+    error(begin, endOfStatement, "expected statement in 'if' body");
+    exit(1);
   }
 
   sequence.Final();
-  return true;
-}
-
-bool SyntacticParser::RelationOperator(
-    std::vector<Lexeme>::iterator &iter,
-    const std::vector<Lexeme>::iterator &end) {
-  if (iter->type != Lexeme::Type::RELATION) {
-    return false;
-  }
-
-  if (iter->value == ">") {
-    sequence.Push(Entry::Command::CMPG);
-  } else if (iter->value == "<") {
-    sequence.Push(Entry::Command::CMPL);
-  } else if (iter->value == "==") {
-    sequence.Push(Entry::Command::CMPE);
-  } else if (iter->value == "<>") {
-    sequence.Push(Entry::Command::CMPNE);
-  }
-
-  return true;
-}
-
-bool SyntacticParser::LogicalOperator(
-    std::vector<Lexeme>::iterator &iter,
-    const std::vector<Lexeme>::iterator &end) {
-  if (iter->type != Lexeme::Type::AND && iter->type != Lexeme::Type::OR) {
-    return false;
-  }
-
-  if (iter->value == "and") {
-    sequence.Push(Entry::Command::AND);
-  } else if (iter->value == "or") {
-    sequence.Push(Entry::Command::OR);
-  }
-
-  return true;
-}
-
-bool SyntacticParser::ArithmeticOperator(
-    std::vector<Lexeme>::iterator &iter,
-    const std::vector<Lexeme>::iterator &end) {
-  if (iter->type != Lexeme::Type::ARITHMETIC_SIMPLE &&
-      iter->type != Lexeme::Type::ARITHMETIC_DIFICULT) {
-    return false;
-  }
-
-  if (iter->value == "+") {
-    sequence.Push(Entry::Command::ADD);
-  } else if (iter->value == "-") {
-    sequence.Push(Entry::Command::SUB);
-  } else if (iter->value == "*") {
-    sequence.Push(Entry::Command::MUL);
-  } else if (iter->value == "/") {
-    sequence.Push(Entry::Command::DIV);
-  }
-
-  return true;
-}
-
-bool SyntacticParser::Operand(std::vector<Lexeme>::iterator &iter,
-                              const std::vector<Lexeme>::iterator &end) {
-  if (iter->category != Lexeme::Category::CONSTANT &&
-      iter->category != Lexeme::Category::IDENTIFIER) {
-    return false;
-  }
-
-  if (iter->category == Lexeme::Category::CONSTANT) {
-    sequence.PushConstant(iter->value);
-  } else if (iter->category == Lexeme::Category::IDENTIFIER) {
-    sequence.PushVariable(iter->value);
-  }
-
-  return true;
-}
-
-bool SyntacticParser::OpenedBracket(std::vector<Lexeme>::iterator &iter,
-                                    const std::vector<Lexeme>::iterator &end) {
-  if (iter->type != Lexeme::Type::BRACKET || iter->value != "(") {
-    return false;
-  }
-
-  sequence.PushOpeningBracket();
-  return true;
-}
-
-bool SyntacticParser::ClosedBracket(std::vector<Lexeme>::iterator &iter,
-                                    const std::vector<Lexeme>::iterator &end) {
-  if (iter->type != Lexeme::Type::BRACKET || iter->value != ")") {
-    return false;
-  }
-
-  sequence.PushClosingBracket();
-  return true;
-}
-
-std::optional<bool> SyntacticParser::RelationshipExpression(
-    std::vector<Lexeme>::iterator &iter,
-    const std::vector<Lexeme>::iterator &end) {
-  auto begin = iter;
-  if (!Operand(iter, end)) {
-    return false;
-  }
-  if (!RelationOperator(++iter, end)) {
-    return false;
-  }
-  if (!Operand(++iter, end)) {
-    error(begin, iter, "expected operand in relation expression");
-    return std::nullopt;
-  }
-
-  return true;
-}
-
-std::optional<bool> SyntacticParser::ArithmeticExpression(
-    std::vector<Lexeme>::iterator &iter,
-    const std::vector<Lexeme>::iterator &end) {
-  auto begin = iter;
-  int opened_brackets_counter = 0;
-
-  --iter;
-  do {
-    while (OpenedBracket(++iter, end)) {
-      ++opened_brackets_counter;
+  std::vector<size_t> indexesOfEnd;
+  indexesOfEnd.push_back(sequence.PushAddress(-1));
+  sequence.Push(Entry::Command::JMP);
+  Iterator endOfIf = endOfStatement;
+  while (ElseIf(endOfIf + 1)) {
+    sequence.RewriteAddress(indexOfNextIf, sequence.Size());
+    const auto &[endOfLogExpr, success1] = LogExpr(endOfIf + 2, end);
+    if (!success1) {
+      error(endOfIf + 1, endOfLogExpr,
+            "expected logical expression as condition in 'elseif' statement");
+      exit(1);
     }
-    if (!Operand(iter, end)) {
-      if (opened_brackets_counter) {
-        error(begin, iter, "expected operand in arithmetic expression");
-        return std::nullopt;
-      }
-      return false;
+    if (!Then(endOfLogExpr + 1)) {
+      error(endOfIf + 1, endOfLogExpr + 1,
+            "expected keyword 'then' after condition of 'elseif' statement");
+      exit(1);
     }
-    while (ClosedBracket(++iter, end)) {
-      --opened_brackets_counter;
-    }
-  } while (ArithmeticOperator(iter, end));
-
-  if (opened_brackets_counter > 0) {
-    error(begin, iter, "expected closing brackets in arithmetic expression");
-    return std::nullopt;
-  } else if (opened_brackets_counter < 0) {
-    error(begin, iter - 1,
-          "too many closing brackets in arithmetic expression");
-    return std::nullopt;
-  }
-
-  return true;
-}
-
-std::optional<bool>
-SyntacticParser::LogicalExpression(std::vector<Lexeme>::iterator &iter,
-                                   const std::vector<Lexeme>::iterator &end) {
-  auto begin = iter;
-  int opened_brackets_counter = 0;
-
-  --iter;
-  do {
-    while (OpenedBracket(++iter, end)) {
-      ++opened_brackets_counter;
-    }
-    auto optionalRelationshipExpression = RelationshipExpression(iter, end);
-    if (!optionalRelationshipExpression.has_value()) {
-      return std::nullopt;
-    }
-    if (!optionalRelationshipExpression.value()) {
-      if (opened_brackets_counter) {
-        error(begin, iter, "expected operand in logical expression");
-        return std::nullopt;
-      }
-      return false;
-    }
-    while (ClosedBracket(++iter, end)) {
-      --opened_brackets_counter;
-    }
-  } while (LogicalOperator(iter, end));
-
-  if (opened_brackets_counter > 0) {
-    error(begin, iter, "expected closing brackets in logical expression");
-    return std::nullopt;
-  } else if (opened_brackets_counter < 0) {
-    error(begin, iter - 1, "too many closing brackets in logical expression");
-    return std::nullopt;
-  }
-
-  return true;
-}
-
-std::optional<bool>
-SyntacticParser::Statement(std::vector<Lexeme>::iterator &iter,
-                           const std::vector<Lexeme>::iterator &end) {
-  auto begin = iter;
-  if (iter->category == Lexeme::Category::IDENTIFIER) {
-    sequence.Push(Entry::Command::MOV);
-    sequence.PushVariable(iter->value);
-    ++iter;
-    if (iter->type != Lexeme::Type::ASSIGNMENT) {
-      error(begin, iter, "expected assignment operator after identifier");
-      return std::nullopt;
-    }
-    auto optionalArithmeticExpression = ArithmeticExpression(++iter, end);
-    if (!optionalArithmeticExpression.has_value()) {
-      return std::nullopt;
-    }
-    if (!optionalArithmeticExpression.value()) {
-      error(begin, iter,
-            "expected arithmetic expression after assignment operator");
-      return std::nullopt;
-    }
-    --iter;
-  } else if (iter->type == Lexeme::Type::INPUT ||
-             iter->type == Lexeme::Type::OUTPUT) {
-    if (iter->type == Lexeme::Type::INPUT) {
-      sequence.Push(Entry::Command::INPUT);
-      if ((++iter)->category != Lexeme::Category::IDENTIFIER) {
-        error(begin, iter, "expected identifier after 'input'");
-        return std::nullopt;
-      }
-      sequence.PushVariable(iter->value);
-    } else if (iter->type == Lexeme::Type::OUTPUT) {
-      sequence.Push(Entry::Command::OUTPUT);
-      if (!Operand(++iter, end)) {
-        error(begin, iter, "expected operand after 'output'");
-        return std::nullopt;
-      }
-    }
-  } else {
-    return false;
-  }
-
-  if (!Separator(++iter, end)) {
-    error(begin, iter, "expected separator in the end of statement");
-    return std::nullopt;
-  }
-
-  return true;
-}
-
-std::optional<bool>
-SyntacticParser::ConditionalStatement(std::vector<Lexeme>::iterator &iter,
-                                      const std::vector<Lexeme>::iterator &end,
-                                      Lexeme::Type type) {
-  auto begin = iter;
-  if (iter->type == type) {
-    auto optionalLogicalExpression = LogicalExpression(++iter, end);
-    if (!optionalLogicalExpression.has_value()) {
-      return std::nullopt;
-    }
-    if (!optionalLogicalExpression.value()) {
-      error(begin, iter, "expected logical condition");
-      return std::nullopt;
-    }
-    if (iter->type != Lexeme::Type::THEN) {
-      error(begin, iter,
-            "expected keyword 'then' for opening 'if' body after condition");
-      return std::nullopt;
-    }
+    indexOfNextIf = sequence.PushAddress(-1);
+    sequence.Push(Entry::Command::JZ);
     sequence.Final();
-    size_t indexOfNextIfBody = sequence.PushAddress(-1); // fictive address
-    sequence.ForcePush(Entry::Command::JZ);
-    std::optional<bool> optionalStatement;
-    do {
-      optionalStatement = Statement(++iter, end);
-      if (!optionalStatement.has_value()) {
-        return std::nullopt;
-      }
-    } while (optionalStatement.value());
-    size_t indexOfEnd = sequence.PushAddress(-1); // fictive address
-    sequence.ForcePush(Entry::Command::JMP);
-    if (iter->type == Lexeme::Type::ELSEIF) {
-      sequence.RewriteAddress(indexOfNextIfBody, sequence.Size());
-      auto optionalConditionalStatement =
-          ConditionalStatement(iter, end, Lexeme::Type::ELSEIF);
-      if (!optionalConditionalStatement.has_value() ||
-          !optionalConditionalStatement.value()) {
-        return optionalConditionalStatement;
-      }
-      sequence.RewriteAddress(indexOfEnd, sequence.Size());
-      return true;
-    } else if (iter->type == Lexeme::Type::ELSE) {
-      sequence.RewriteAddress(indexOfNextIfBody, sequence.Size());
-      do {
-        optionalStatement = Statement(++iter, end);
-        if (!optionalStatement.has_value()) {
-          return std::nullopt;
-        }
-      } while (optionalStatement.value());
-      sequence.RewriteAddress(indexOfEnd, sequence.Size());
+    const auto &[endOfStatement, success2] = Statement(endOfLogExpr + 2, end);
+    if (!success2) {
+      error(endOfIf, endOfStatement, "expected statement in 'if' body");
+      exit(1);
     }
-    if (iter->type == Lexeme::Type::END) {
-      return true;
-    } else {
-      error(iter, iter, "expected keyword 'end' for closing 'if' body");
-      return std::nullopt;
+    endOfIf = endOfStatement;
+    sequence.Final();
+    indexesOfEnd.push_back(sequence.PushAddress(-1));
+    sequence.Push(Entry::Command::JMP);
+  }
+  sequence.Final();
+  sequence.RewriteAddress(indexOfNextIf, sequence.Size());
+
+  if (Else(endOfIf + 1)) {
+    const auto &[endOfStatement, success] = Statement(endOfIf + 2, end);
+    if (!success) {
+      error(endOfIf + 1, endOfStatement, "expected statement in 'else' body");
+      exit(1);
     }
+    endOfIf = endOfStatement;
   }
 
+  if (!End(endOfIf + 1)) {
+    error(begin, endOfIf + 1, "expected keyword 'end' after 'if' body");
+    exit(1);
+  }
+
+  for (size_t index : indexesOfEnd) {
+    sequence.RewriteAddress(index, sequence.Size());
+  }
+
+  return {endOfIf + 1, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::LogExpr(Iterator begin,
+                                                    Iterator end) {
+  const auto &[endOfLogExprInner, success] = LogExprInner(begin, end);
+  if (!success) {
+    return {begin, false};
+  }
+
+  Iterator endOfLastLogExprInner = endOfLogExprInner;
+  while (LogOp1(endOfLastLogExprInner + 1)) {
+    const auto &[endOfLogExprInner, success] =
+        LogExprInner(endOfLastLogExprInner + 2, end);
+    if (!success) {
+      error(begin, endOfLogExprInner,
+            "expected relation expression in logical expression");
+      exit(1);
+    }
+    endOfLastLogExprInner = endOfLogExprInner;
+  }
+  return {endOfLastLogExprInner, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::LogExprInner(Iterator begin,
+                                                         Iterator end) {
+  const auto &[endOfRelExpr, success] = RelExpr(begin, end);
+  if (!success) {
+    return {begin, false};
+  }
+
+  Iterator endOfLastRelExpr = endOfRelExpr;
+  while (LogOp2(endOfLastRelExpr + 1)) {
+    const auto &[endOfRelExpr, success] = RelExpr(endOfLastRelExpr + 2, end);
+    if (!success) {
+      error(begin, endOfRelExpr,
+            "expected relation expression in logical expression");
+      exit(1);
+    }
+    endOfLastRelExpr = endOfRelExpr;
+  }
+  return {endOfLastRelExpr, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::RelExpr(Iterator begin,
+                                                    Iterator end) {
+  if (!Operand(begin)) {
+    return {begin, false};
+  }
+
+  if (RelOp(begin + 1)) {
+    if (!Operand(begin + 2)) {
+      error(begin, begin + 2, "expected operand in relation expression");
+      exit(1);
+    }
+    return {begin + 2, true};
+  }
+  return {begin, true};
+}
+
+bool SyntacticParser::RelOp(Iterator begin) {
+  if (begin->type == Lexeme::Type::RELATION) {
+    if (begin->value == ">") {
+      sequence.Push(Entry::Command::CMPG);
+    }
+    if (begin->value == "<") {
+      sequence.Push(Entry::Command::CMPL);
+    }
+    if (begin->value == "==") {
+      sequence.Push(Entry::Command::CMPE);
+    }
+    if (begin->value == "<>") {
+      sequence.Push(Entry::Command::CMPNE);
+    }
+    return true;
+  }
   return false;
 }
 
-std::optional<std::vector<Entry>>
+std::tuple<Iterator, bool> SyntacticParser::Statement(Iterator begin,
+                                                      Iterator end) {
+  const auto &[endOfInstruction, success] = Instruction(begin, end);
+  if (!success) {
+    return {begin, false};
+  }
+
+  Iterator endOfLastInstruction = endOfInstruction;
+  while (Semicolon(endOfLastInstruction + 1)) {
+    const auto &[endOfInstruction, success] =
+        Instruction(endOfLastInstruction + 2, end);
+    if (!success) {
+      error(begin, endOfInstruction, "expected intruction after semicolon");
+      exit(1);
+    }
+    endOfLastInstruction = endOfInstruction;
+  }
+  return {endOfLastInstruction, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::Instruction(Iterator begin,
+                                                        Iterator end) {
+  if (Identifier(begin)) {
+    if (AssignmentOp(begin + 1)) {
+      const auto &[endOfArithExpr, success] = ArithExpr(begin + 2, end);
+      if (!success) {
+        error(begin, endOfArithExpr,
+              "expected arithmetic expression after assignment operator");
+        exit(1);
+      }
+      return {endOfArithExpr, true};
+    }
+  } else if (InputOp(begin)) {
+    if (!Identifier(begin + 1)) {
+      error(begin, begin + 1, "expected identifier after input keyword");
+      exit(1);
+    }
+    return {begin + 1, true};
+  } else if (OutputOp(begin)) {
+    if (!Operand(begin + 1)) {
+      error(begin, begin + 1, "expected operand after output keyword");
+      exit(1);
+    }
+    return {begin + 1, true};
+  }
+
+  return {begin, false};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::ArithExpr(Iterator begin,
+                                                      Iterator end) {
+  const auto &[endOfArithExprInner, success] = ArithExprInner(begin, end);
+  if (!success) {
+    return {begin, false};
+  }
+
+  Iterator endOfLastArithExprInner = endOfArithExprInner;
+  while (ArithOp1(endOfLastArithExprInner + 1)) {
+    const auto &[endOfArithExprInner, success] =
+        ArithExprInner(endOfLastArithExprInner + 2, end);
+    if (!success) {
+      error(begin, endOfLastArithExprInner,
+            "expected arithmetic expression after arithmetic operator");
+      exit(1);
+    }
+    endOfLastArithExprInner = endOfArithExprInner;
+  }
+  return {endOfLastArithExprInner, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::ArithExprInner(Iterator begin,
+                                                           Iterator end) {
+  const auto &[endOfScopedArithExpr, success] = ScopedArithExpr(begin, end);
+  if (!success) {
+    return {begin, false};
+  }
+
+  Iterator endOfLastArithExpr = endOfScopedArithExpr;
+  while (ArithOp2(endOfLastArithExpr + 1)) {
+    const auto &[endOfArithExprInner, success] =
+        ArithExprInner(endOfLastArithExpr + 2, end);
+    if (!success) {
+      error(begin, endOfLastArithExpr,
+            "expected arithmetic expression after arithmetic operator");
+      exit(1);
+    }
+    endOfLastArithExpr = endOfArithExprInner;
+  }
+  return {endOfLastArithExpr, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::ScopedArithExpr(Iterator begin,
+                                                            Iterator end) {
+  if (Operand(begin)) {
+    return {begin, true};
+  }
+
+  if (!OpeningParenthesis(begin)) {
+    return {begin, false};
+  }
+
+  const auto &[endOfArithExpr, success] = ArithExpr(begin + 1, end);
+  if (!success) {
+    error(begin, endOfArithExpr, "expected arithmetic expression after '(");
+    exit(1);
+  }
+
+  if (!ClosingParenthesis(endOfArithExpr + 1)) {
+    error(begin, endOfArithExpr, "expected ')' after arithmetic expression");
+    exit(1);
+  }
+
+  return {endOfArithExpr + 1, true};
+}
+
+bool SyntacticParser::Operand(Iterator begin) {
+  return Identifier(begin) || Constant(begin);
+}
+
+bool SyntacticParser::Identifier(Iterator begin) {
+  if (begin->category == Lexeme::Category::IDENTIFIER) {
+    sequence.PushVariable(begin->value);
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::Constant(Iterator begin) {
+  if (begin->category == Lexeme::Category::CONSTANT) {
+    sequence.PushConstant(begin->value);
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::ArithOp1(Iterator begin) {
+  if (begin->type == Lexeme::Type::ARITHMETIC_SIMPLE) {
+    sequence.Push(begin->value == "+" ? Entry::Command::ADD
+                                      : Entry::Command::SUB);
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::ArithOp2(Iterator begin) {
+  if (begin->type == Lexeme::Type::ARITHMETIC_DIFICULT) {
+    sequence.Push(begin->value == "*" ? Entry::Command::MUL
+                                      : Entry::Command::DIV);
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::LogOp1(Iterator begin) {
+  if (begin->type == Lexeme::Type::OR) {
+    sequence.Push(Entry::Command::OR);
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::LogOp2(Iterator begin) {
+  if (begin->type == Lexeme::Type::AND) {
+    sequence.Push(Entry::Command::AND);
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::OpeningParenthesis(Iterator begin) {
+  if (begin->type == Lexeme::Type::BRACKET && begin->value == "(") {
+    sequence.PushOpeningParenthesis();
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::ClosingParenthesis(Iterator begin) {
+  if (begin->type == Lexeme::Type::BRACKET && begin->value == ")") {
+    sequence.PushClosingParenthesis();
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::Semicolon(Iterator begin) {
+  if (begin->type == Lexeme::Type::SEPARATOR) {
+    sequence.Final();
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::AssignmentOp(Iterator begin) {
+  if (begin->type == Lexeme::Type::ASSIGNMENT) {
+    sequence.Push(Entry::Command::MOV);
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::InputOp(Iterator begin) {
+  if (begin->type == Lexeme::Type::INPUT) {
+    sequence.Push(Entry::Command::INPUT);
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::OutputOp(Iterator begin) {
+  if (begin->type == Lexeme::Type::OUTPUT) {
+    sequence.Push(Entry::Command::OUTPUT);
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::If(Iterator begin) {
+  if (begin->type == Lexeme::Type::IF) {
+    sequence.Final();
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::Then(Iterator begin) {
+  if (begin->type == Lexeme::Type::THEN) {
+    sequence.Final();
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::End(Iterator begin) {
+  if (begin->type == Lexeme::Type::END) {
+    sequence.Final();
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::ElseIf(Iterator begin) {
+  if (begin->type == Lexeme::Type::ELSEIF) {
+    sequence.Final();
+    return true;
+  }
+  return false;
+}
+
+bool SyntacticParser::Else(Iterator begin) {
+  if (begin->type == Lexeme::Type::ELSE) {
+    sequence.Final();
+    return true;
+  }
+  return false;
+}
+
+std::tuple<std::vector<Entry>, bool>
 SyntacticParser::Parse(const std::string &text) {
   auto lexemes = lexer.Analyse(text);
 
   auto begin = lexemes.begin();
   auto end = lexemes.end();
-  auto optionalConditionalStatement = ConditionalStatement(begin, end);
+  const auto &[endOfIfStatement, success] = IfStatement(begin, end);
 
-  if (!optionalConditionalStatement.has_value() ||
-      !optionalConditionalStatement.value()) {
-    return std::nullopt;
+  if (!success) {
+    return {{}, false};
   }
 
-  return sequence.ToVector();
+  return {sequence.ToVector(), true};
 }

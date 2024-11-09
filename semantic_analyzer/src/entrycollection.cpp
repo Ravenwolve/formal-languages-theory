@@ -1,17 +1,16 @@
 #include "entrycollection.h"
 #include <iostream>
-#include <stdexcept>
 #include <unordered_map>
 
 static const std::unordered_map<Entry::Command, size_t> PRIORITY{
-    {Entry::Command::OR, 1},     {Entry::Command::AND, 1},
-    {Entry::Command::MOV, 0},    {Entry::Command::CMPE, 2},
-    {Entry::Command::CMPNE, 2},  {Entry::Command::CMPG, 2},
-    {Entry::Command::CMPL, 2},   {Entry::Command::INPUT, 1},
+    {Entry::Command::OR, 1},     {Entry::Command::AND, 2},
+    {Entry::Command::MOV, 0},    {Entry::Command::CMPE, 3},
+    {Entry::Command::CMPNE, 3},  {Entry::Command::CMPG, 3},
+    {Entry::Command::CMPL, 3},   {Entry::Command::INPUT, 1},
     {Entry::Command::OUTPUT, 1}, {Entry::Command::INPUT, 1},
     {Entry::Command::ADD, 1},    {Entry::Command::SUB, 1},
     {Entry::Command::MUL, 2},    {Entry::Command::DIV, 2},
-};
+    {Entry::Command::JZ, 0},     {Entry::Command::JMP, 0}};
 
 size_t PolishInverseRecord::Push(Entry::Command command) {
   while (!stack.empty() && stack.top() != Entry::Command::BRACKET &&
@@ -22,7 +21,7 @@ size_t PolishInverseRecord::Push(Entry::Command command) {
 
   stack.push(command);
 
-  return stack.size() - 1;
+  return entries.size() - 1;
 }
 
 size_t PolishInverseRecord::PushVariable(const std::string &value) {
@@ -52,12 +51,12 @@ size_t PolishInverseRecord::PushAddress(int value) {
   return entries.size() - 1;
 }
 
-size_t PolishInverseRecord::PushOpeningBracket() {
+size_t PolishInverseRecord::PushOpeningParenthesis() {
   stack.push(Entry::Command::BRACKET);
 
   return entries.size() - 1;
 }
-size_t PolishInverseRecord::PushClosingBracket() {
+size_t PolishInverseRecord::PushClosingParenthesis() {
   while (!stack.empty() && stack.top() != Entry::Command::BRACKET) {
     entries.push_back({Entry::EntryType::COMMAND, stack.top()});
     stack.pop();
