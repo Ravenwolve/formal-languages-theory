@@ -1,9 +1,9 @@
 #include "parser.h"
 #include <iostream>
-#include <optional>
 
-static void error(std::vector<Lexeme>::iterator &iter,
-                  const std::vector<Lexeme>::iterator &end,
+using Iterator = std::vector<Lexeme>::iterator;
+
+static void error(Iterator iter, const Iterator end,
                   const std::string &reason) {
   std::cerr << "syntax error: " << reason << '\n';
   for (auto item = iter; item != end; ++item) {
@@ -12,245 +12,314 @@ static void error(std::vector<Lexeme>::iterator &iter,
   std::cerr << "\033[1;31m" << end->value << "\033[0m\n";
 }
 
-static bool Separator(std::vector<Lexeme>::iterator &iter,
-                      const std::vector<Lexeme>::iterator &end) {
-  return iter->type == Lexeme::Type::SEPARATOR;
-}
-
-static bool RelationOperator(std::vector<Lexeme>::iterator &iter,
-                             const std::vector<Lexeme>::iterator &end) {
-  return iter->type == Lexeme::Type::RELATION;
-}
-
-static bool LogicalOperator(std::vector<Lexeme>::iterator &iter,
-                            const std::vector<Lexeme>::iterator &end) {
-  if (iter->category != Lexeme::Category::KEYWORD ||
-      (iter->type != Lexeme::Type::AND && iter->type != Lexeme::Type::OR)) {
-    return false;
+std::tuple<Iterator, bool> SyntacticParser::IfStatement(Iterator begin,
+                                                        Iterator end) {
+  if (!If(begin)) {
+    return {begin, false};
   }
 
-  return true;
-}
-
-static bool ArithmeticOperator(std::vector<Lexeme>::iterator &iter,
-                               const std::vector<Lexeme>::iterator &end) {
-  if (iter->category != Lexeme::Category::SPECIAL_SYMBOL ||
-      iter->type != Lexeme::Type::ARITHMETIC_SIMPLE &&
-          iter->type != Lexeme::Type::ARITHMETIC_DIFICULT) {
-    return false;
+  const auto &[endOfLogExpr, success1] = LogExpr(begin + 1, end);
+  if (!success1) {
+    error(begin, endOfLogExpr + 1,
+          "expected logical expression as condition in 'if' statement");
+    exit(1);
   }
 
-  return true;
-}
-
-static bool Operand(std::vector<Lexeme>::iterator &iter,
-                    const std::vector<Lexeme>::iterator &end) {
-  if (iter->category != Lexeme::Category::CONSTANT &&
-      iter->category != Lexeme::Category::IDENTIFIER) {
-    return false;
+  if (!Then(endOfLogExpr + 1)) {
+    error(begin, endOfLogExpr + 1,
+          "expected keyword 'then' after condition of 'if' statement");
+    exit(1);
   }
 
-  return true;
-}
-
-static bool OpenedBracket(std::vector<Lexeme>::iterator &iter,
-                          const std::vector<Lexeme>::iterator &end) {
-  if (iter->type != Lexeme::Type::BRACKET || iter->value != "(") {
-    return false;
+  const auto &[endOfStatement, success2] = Statement(endOfLogExpr + 2, end);
+  if (!success2) {
+    error(begin, endOfStatement, "expected statement in 'if' body");
+    exit(1);
   }
 
-  return true;
-}
-
-static bool ClosedBracket(std::vector<Lexeme>::iterator &iter,
-                          const std::vector<Lexeme>::iterator &end) {
-  if (iter->type != Lexeme::Type::BRACKET || iter->value != ")") {
-    return false;
-  }
-
-  return true;
-}
-
-static std::optional<bool>
-RelationshipExpression(std::vector<Lexeme>::iterator &iter,
-                       const std::vector<Lexeme>::iterator &end) {
-  auto begin = iter;
-  if (!Operand(iter, end)) {
-    return false;
-  }
-  if (!RelationOperator(++iter, end)) {
-    return false;
-  }
-  if (!Operand(++iter, end)) {
-    error(begin, iter, "expected operand in relation expression");
-    return std::nullopt;
-  }
-
-  return true;
-}
-
-static std::optional<bool>
-ArithmeticExpression(std::vector<Lexeme>::iterator &iter,
-                     const std::vector<Lexeme>::iterator &end) {
-  auto begin = iter;
-  int opened_brackets_counter = 0;
-
-  --iter;
-  do {
-    while (OpenedBracket(++iter, end)) {
-      ++opened_brackets_counter;
+  Iterator endOfIf = endOfStatement;
+  while (ElseIf(endOfIf + 1)) {
+    const auto &[endOfLogExpr, success1] = LogExpr(endOfIf + 2, end);
+    if (!success1) {
+      error(endOfIf + 1, endOfLogExpr,
+            "expected logical expression as condition in 'elseif' statement");
+      exit(1);
     }
-    if (!Operand(iter, end)) {
-      if (opened_brackets_counter) {
-        error(begin, iter, "expected operand in arithmetic expression");
-        return std::nullopt;
+    if (!Then(endOfLogExpr + 1)) {
+      error(endOfIf + 1, endOfLogExpr + 1,
+            "expected keyword 'then' after condition of 'elseif' statement");
+      exit(1);
+    }
+    const auto &[endOfStatement, success2] = Statement(endOfLogExpr + 2, end);
+    if (!success2) {
+      error(endOfIf, endOfStatement, "expected statement in 'if' body");
+      exit(1);
+    }
+    endOfIf = endOfStatement;
+  }
+
+  if (Else(endOfIf + 1)) {
+    const auto &[endOfStatement, success] = Statement(endOfIf + 2, end);
+    if (!success) {
+      error(endOfIf + 1, endOfStatement, "expected statement in 'else' body");
+      exit(1);
+    }
+    endOfIf = endOfStatement;
+  }
+
+  if (!End(endOfIf + 1)) {
+    error(begin, endOfIf + 1, "expected keyword 'end' after 'if' body");
+    exit(1);
+  }
+  return {endOfIf + 1, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::LogExpr(Iterator begin,
+                                                    Iterator end) {
+  const auto &[endOfLogExprInner, success] = LogExprInner(begin, end);
+  if (!success) {
+    return {begin, false};
+  }
+
+  Iterator endOfLastLogExprInner = endOfLogExprInner;
+  while (LogOp1(endOfLastLogExprInner + 1)) {
+    const auto &[endOfLogExprInner, success] =
+        LogExprInner(endOfLastLogExprInner + 2, end);
+    if (!success) {
+      error(begin, endOfLogExprInner,
+            "expected relation expression in logical expression");
+      exit(1);
+    }
+    endOfLastLogExprInner = endOfLogExprInner;
+  }
+  return {endOfLastLogExprInner, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::LogExprInner(Iterator begin,
+                                                         Iterator end) {
+  const auto &[endOfRelExpr, success] = RelExpr(begin, end);
+  if (!success) {
+    return {begin, false};
+  }
+
+  Iterator endOfLastRelExpr = endOfRelExpr;
+  while (LogOp2(endOfLastRelExpr + 1)) {
+    const auto &[endOfRelExpr, success] = RelExpr(endOfLastRelExpr + 2, end);
+    if (!success) {
+      error(begin, endOfRelExpr,
+            "expected relation expression in logical expression");
+      exit(1);
+    }
+    endOfLastRelExpr = endOfRelExpr;
+  }
+  return {endOfLastRelExpr, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::RelExpr(Iterator begin,
+                                                    Iterator end) {
+  if (!Operand(begin)) {
+    return {begin, false};
+  }
+
+  if (RelOp(begin + 1)) {
+    if (!Operand(begin + 2)) {
+      error(begin, begin + 2, "expected operand in relation expression");
+      exit(1);
+    }
+    return {begin + 2, true};
+  }
+  return {begin, true};
+}
+
+bool SyntacticParser::RelOp(Iterator begin) {
+  return begin->type == Lexeme::Type::RELATION;
+}
+
+std::tuple<Iterator, bool> SyntacticParser::Statement(Iterator begin,
+                                                      Iterator end) {
+  const auto &[endOfInstruction, success] = Instruction(begin, end);
+  if (!success) {
+    return {begin, false};
+  }
+
+  Iterator endOfLastInstruction = endOfInstruction;
+  while (Semicolon(endOfLastInstruction + 1)) {
+    const auto &[endOfInstruction, success] =
+        Instruction(endOfLastInstruction + 2, end);
+    if (!success) {
+      error(begin, endOfInstruction, "expected intruction after semicolon");
+      exit(1);
+    }
+    endOfLastInstruction = endOfInstruction;
+  }
+  return {endOfLastInstruction, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::Instruction(Iterator begin,
+                                                        Iterator end) {
+  if (Identifier(begin)) {
+    if (AssignmentOp(begin + 1)) {
+      const auto &[endOfArithExpr, success] = ArithExpr(begin + 2, end);
+      if (!success) {
+        error(begin, endOfArithExpr,
+              "expected arithmetic expression after assignment operator");
+        exit(1);
       }
-      return false;
+      return {endOfArithExpr, true};
     }
-    while (ClosedBracket(++iter, end)) {
-      --opened_brackets_counter;
+  } else if (InputOp(begin)) {
+    if (!Identifier(begin + 1)) {
+      error(begin, begin + 1, "expected identifier after input keyword");
+      exit(1);
     }
-  } while (ArithmeticOperator(iter, end));
-
-  if (opened_brackets_counter > 0) {
-    error(begin, iter, "expected closing brackets in arithmetic expression");
-    return std::nullopt;
-  } else if (opened_brackets_counter < 0) {
-    error(begin, iter - 1,
-          "too many closing brackets in arithmetic expression");
-    return std::nullopt;
+    return {begin + 1, true};
+  } else if (OutputOp(begin)) {
+    if (!Operand(begin + 1)) {
+      error(begin, begin + 1, "expected operand after output keyword");
+      exit(1);
+    }
+    return {begin + 1, true};
   }
 
-  return true;
+  return {begin, false};
 }
 
-static std::optional<bool>
-LogicalExpression(std::vector<Lexeme>::iterator &iter,
-                  const std::vector<Lexeme>::iterator &end) {
-  auto begin = iter;
-  int opened_brackets_counter = 0;
-
-  --iter;
-  do {
-    while (OpenedBracket(++iter, end)) {
-      ++opened_brackets_counter;
-    }
-    auto optionalRelationshipExpression = RelationshipExpression(iter, end);
-    if (!optionalRelationshipExpression.has_value()) {
-      return std::nullopt;
-    }
-    if (!optionalRelationshipExpression.value()) {
-      if (opened_brackets_counter) {
-        error(begin, iter, "expected operand in logical expression");
-        return std::nullopt;
-      }
-      return false;
-    }
-    while (ClosedBracket(++iter, end)) {
-      --opened_brackets_counter;
-    }
-  } while (LogicalOperator(iter, end));
-
-  if (opened_brackets_counter > 0) {
-    error(begin, iter, "expected closing brackets in logical expression");
-    return std::nullopt;
-  } else if (opened_brackets_counter < 0) {
-    error(begin, iter - 1, "too many closing brackets in logical expression");
-    return std::nullopt;
+std::tuple<Iterator, bool> SyntacticParser::ArithExpr(Iterator begin,
+                                                      Iterator end) {
+  const auto &[endOfArithExprInner, success] = ArithExprInner(begin, end);
+  if (!success) {
+    return {begin, false};
   }
 
-  return true;
+  Iterator endOfLastArithExprInner = endOfArithExprInner;
+  while (ArithOp1(endOfLastArithExprInner + 1)) {
+    const auto &[endOfArithExprInner, success] =
+        ArithExprInner(endOfLastArithExprInner + 2, end);
+    if (!success) {
+      error(begin, endOfLastArithExprInner,
+            "expected arithmetic expression after arithmetic operator");
+      exit(1);
+    }
+    endOfLastArithExprInner = endOfArithExprInner;
+  }
+  return {endOfLastArithExprInner, true};
 }
 
-static std::optional<bool> Statement(std::vector<Lexeme>::iterator &iter,
-                                     const std::vector<Lexeme>::iterator &end) {
-  auto begin = iter;
-  if (iter->category == Lexeme::Category::IDENTIFIER) {
-    ++iter;
-    if (iter->type != Lexeme::Type::ASSIGNMENT) {
-      error(begin, iter, "expected assignment operator after identifier");
-      return std::nullopt;
-    }
-    auto optionalArithmeticExpression = ArithmeticExpression(++iter, end);
-    if (!optionalArithmeticExpression.has_value()) {
-      return std::nullopt;
-    }
-    if (!optionalArithmeticExpression.value()) {
-      error(begin, iter,
-            "expected arithmetic expression after assignment operator");
-      return std::nullopt;
-    }
-    --iter;
-  } else if (iter->type == Lexeme::Type::INPUT ||
-             iter->type == Lexeme::Type::OUTPUT) {
-    if (iter->type == Lexeme::Type::INPUT) {
-      if ((++iter)->category != Lexeme::Category::IDENTIFIER) {
-        error(begin, iter, "expected identifier after 'input'");
-        return std::nullopt;
-      }
-    } else if (iter->type == Lexeme::Type::OUTPUT) {
-      if (!Operand(++iter, end)) {
-        error(begin, iter, "expected operand after 'output'");
-        return std::nullopt;
-      }
-    }
-  } else {
-    return false;
+std::tuple<Iterator, bool> SyntacticParser::ArithExprInner(Iterator begin,
+                                                           Iterator end) {
+  const auto &[endOfScopedArithExpr, success] = ScopedArithExpr(begin, end);
+  if (!success) {
+    return {begin, false};
   }
 
-  if (!Separator(++iter, end)) {
-    error(begin, iter, "expected separator in the end of statement");
-    return std::nullopt;
+  Iterator endOfLastArithExpr = endOfScopedArithExpr;
+  while (ArithOp2(endOfLastArithExpr + 1)) {
+    const auto &[endOfArithExprInner, success] =
+        ArithExprInner(endOfLastArithExpr + 2, end);
+    if (!success) {
+      error(begin, endOfLastArithExpr,
+            "expected arithmetic expression after arithmetic operator");
+      exit(1);
+    }
+    endOfLastArithExpr = endOfArithExprInner;
   }
-
-  return true;
+  return {endOfLastArithExpr, true};
 }
 
-static std::optional<bool>
-ConditionalStatement(std::vector<Lexeme>::iterator &iter,
-                     const std::vector<Lexeme>::iterator &end,
-                     Lexeme::Type type = Lexeme::Type::IF) {
-  auto begin = iter;
-  if (iter->type == type) {
-    auto optionalLogicalExpression = LogicalExpression(++iter, end);
-    if (!optionalLogicalExpression.has_value()) {
-      return std::nullopt;
-    }
-    if (!optionalLogicalExpression.value()) {
-      error(begin, iter, "expected logical condition");
-      return std::nullopt;
-    }
-    if (iter->type != Lexeme::Type::THEN) {
-      error(begin, iter,
-            "expected keyword 'then' for opening 'if' body after condition");
-      return std::nullopt;
-    }
-    std::optional<bool> optionalStatement;
-    do {
-      optionalStatement = Statement(++iter, end);
-      if (!optionalStatement.has_value()) {
-        return std::nullopt;
-      }
-    } while (optionalStatement.value());
-    if (iter->type == Lexeme::Type::ELSEIF) {
-      return ConditionalStatement(iter, end, Lexeme::Type::ELSEIF);
-    } else if (iter->type == Lexeme::Type::ELSE) {
-      do {
-        optionalStatement = Statement(++iter, end);
-        if (!optionalStatement.has_value()) {
-          return std::nullopt;
-        }
-      } while (optionalStatement.value());
-    }
-    if (iter->type == Lexeme::Type::END) {
-      return true;
-    } else {
-      error(iter, iter, "expected keyword 'end' for closing 'if' body");
-      return std::nullopt;
-    }
+std::tuple<Iterator, bool> SyntacticParser::ScopedArithExpr(Iterator begin,
+                                                            Iterator end) {
+  if (Operand(begin)) {
+    return {begin, true};
   }
 
-  return false;
+  if (!OpeningParenthesis(begin)) {
+    return {begin, false};
+  }
+
+  const auto &[endOfArithExpr, success] = ArithExpr(begin + 1, end);
+  if (!success) {
+    error(begin, endOfArithExpr, "expected arithmetic expression after '(");
+    exit(1);
+  }
+
+  if (!ClosingParenthesis(endOfArithExpr + 1)) {
+    error(begin, endOfArithExpr, "expected ')' after arithmetic expression");
+    exit(1);
+  }
+
+  return {endOfArithExpr + 1, true};
+}
+
+bool SyntacticParser::Operand(Iterator begin) {
+  return Identifier(begin) || Constant(begin);
+}
+
+bool SyntacticParser::Identifier(Iterator begin) {
+  return begin->category == Lexeme::Category::IDENTIFIER;
+}
+
+bool SyntacticParser::Constant(Iterator begin) {
+  return begin->category == Lexeme::Category::CONSTANT;
+}
+
+bool SyntacticParser::ArithOp1(Iterator begin) {
+  return begin->type == Lexeme::Type::ARITHMETIC_SIMPLE;
+}
+
+bool SyntacticParser::ArithOp2(Iterator begin) {
+  return begin->type == Lexeme::Type::ARITHMETIC_DIFICULT;
+}
+
+bool SyntacticParser::LogOp1(Iterator begin) {
+  return begin->type == Lexeme::Type::OR;
+}
+
+bool SyntacticParser::LogOp2(Iterator begin) {
+  return begin->type == Lexeme::Type::AND;
+}
+
+bool SyntacticParser::OpeningParenthesis(Iterator begin) {
+  return begin->type == Lexeme::Type::BRACKET && begin->value == "(";
+}
+
+bool SyntacticParser::ClosingParenthesis(Iterator begin) {
+  return begin->type == Lexeme::Type::BRACKET && begin->value == ")";
+}
+
+bool SyntacticParser::Semicolon(Iterator begin) {
+  return begin->type == Lexeme::Type::SEPARATOR;
+}
+
+bool SyntacticParser::AssignmentOp(Iterator begin) {
+  return begin->type == Lexeme::Type::ASSIGNMENT;
+}
+
+bool SyntacticParser::InputOp(Iterator begin) {
+  return begin->type == Lexeme::Type::INPUT;
+}
+
+bool SyntacticParser::OutputOp(Iterator begin) {
+  return begin->type == Lexeme::Type::OUTPUT;
+}
+
+bool SyntacticParser::If(Iterator begin) {
+  return begin->type == Lexeme::Type::IF;
+}
+
+bool SyntacticParser::Then(Iterator begin) {
+  return begin->type == Lexeme::Type::THEN;
+}
+
+bool SyntacticParser::End(Iterator begin) {
+  return begin->type == Lexeme::Type::END;
+}
+
+bool SyntacticParser::ElseIf(Iterator begin) {
+  return begin->type == Lexeme::Type::ELSEIF;
+}
+
+bool SyntacticParser::Else(Iterator begin) {
+  return begin->type == Lexeme::Type::ELSE;
 }
 
 bool SyntacticParser::Parse(const std::string &text) {
@@ -258,8 +327,7 @@ bool SyntacticParser::Parse(const std::string &text) {
 
   auto begin = lexemes.begin();
   auto end = lexemes.end();
-  auto optionalConditionalStatement = ConditionalStatement(begin, end);
+  const auto &[endOfIfStatement, success] = IfStatement(begin, end);
 
-  return optionalConditionalStatement.has_value() &&
-         optionalConditionalStatement.value();
+  return success;
 }

@@ -1,3 +1,0 @@
-/home/sharovkv/Projects/University/Theory-of-formal-languages-and-translations/syntactic_parser/build/CMakeFiles/parser.dir
-/home/sharovkv/Projects/University/Theory-of-formal-languages-and-translations/syntactic_parser/build/CMakeFiles/edit_cache.dir
-/home/sharovkv/Projects/University/Theory-of-formal-languages-and-translations/syntactic_parser/build/CMakeFiles/rebuild_cache.dir

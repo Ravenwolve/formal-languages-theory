@@ -1,3 +1,0 @@
-/home/sharovkv/Projects/University/Theory-of-formal-languages-and-translations/lexical_analyzer/build/CMakeFiles/lexer.dir
-/home/sharovkv/Projects/University/Theory-of-formal-languages-and-translations/lexical_analyzer/build/CMakeFiles/edit_cache.dir
-/home/sharovkv/Projects/University/Theory-of-formal-languages-and-translations/lexical_analyzer/build/CMakeFiles/rebuild_cache.dir

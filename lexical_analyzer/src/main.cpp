@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
               << "\n";
     for (auto lexeme : lexemes) {
       std::cout << lexeme.value << "\t\t\t" << TYPES.at(lexeme.type)
-                << (TYPES.at(lexeme.type).length() < 7    ? "\t\t\t"
+                << (TYPES.at(lexeme.type).length() < 8    ? "\t\t\t"
                     : TYPES.at(lexeme.type).length() > 11 ? "\t"
                                                           : "\t\t")
                 << CATEGORIES.at(lexeme.category) << "\n";
