@@ -7,7 +7,6 @@ set(SRC
 
   src/interpreter.cpp
   
-  ../semantic_analyzer/src/entrycollection.cpp
   ../lexical_analyzer/src/analyzer.cpp
   ../semantic_analyzer/src/parser.cpp
 )
@@ -18,7 +17,6 @@ set(HEADER
   ../lexical_analyzer/src/state.h
   ../lexical_analyzer/src/lexeme.h
   ../lexical_analyzer/src/analyzer.h
-  ../semantic_analyzer/src/entrycollection.h
   ../lexical_analyzer/src/analyzer.h
   ../semantic_analyzer/src/parser.h
 )

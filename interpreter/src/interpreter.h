@@ -2,6 +2,7 @@
 
 #include "../../semantic_analyzer/src/parser.h"
 #include <optional>
+#include <stack>
 
 class Interpreter {
 public:
