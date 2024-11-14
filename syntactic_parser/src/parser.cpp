@@ -37,41 +37,49 @@ std::tuple<Iterator, bool> SyntacticParser::IfStatement(Iterator begin,
     exit(1);
   }
 
-  Iterator endOfIf = endOfStatement;
-  while (ElseIf(endOfIf + 1)) {
-    const auto &[endOfLogExpr, success1] = LogExpr(endOfIf + 2, end);
+  const auto &[endOfOptionalAlterIfStatement, success3] =
+      AlterIfStatement(endOfStatement + 1, end);
+
+  if (!End(endOfOptionalAlterIfStatement + 1)) {
+    error(begin, endOfOptionalAlterIfStatement + 1,
+          "expected keyword 'end' after 'if' body");
+    exit(1);
+  }
+  return {endOfOptionalAlterIfStatement + 1, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::AlterIfStatement(Iterator begin,
+                                                             Iterator end) {
+  if (ElseIf(begin)) {
+    const auto &[endOfLogExpr, success1] = LogExpr(begin + 1, end);
     if (!success1) {
-      error(endOfIf + 1, endOfLogExpr,
+      error(begin + 1, endOfLogExpr,
             "expected logical expression as condition in 'elseif' statement");
       exit(1);
     }
     if (!Then(endOfLogExpr + 1)) {
-      error(endOfIf + 1, endOfLogExpr + 1,
+      error(begin, endOfLogExpr + 1,
             "expected keyword 'then' after condition of 'elseif' statement");
       exit(1);
     }
     const auto &[endOfStatement, success2] = Statement(endOfLogExpr + 2, end);
     if (!success2) {
-      error(endOfIf, endOfStatement, "expected statement in 'if' body");
+      error(begin, endOfStatement, "expected statement in 'if' body");
       exit(1);
     }
-    endOfIf = endOfStatement;
-  }
-
-  if (Else(endOfIf + 1)) {
-    const auto &[endOfStatement, success] = Statement(endOfIf + 2, end);
+    const auto &[endOfAlterIfStatement, success3] =
+        AlterIfStatement(endOfStatement + 1, end);
+    return {endOfAlterIfStatement, true};
+  } else if (Else(begin)) {
+    const auto &[endOfStatement, success] = Statement(begin + 1, end);
     if (!success) {
-      error(endOfIf + 1, endOfStatement, "expected statement in 'else' body");
+      error(begin + 1, endOfStatement, "expected statement in 'else' body");
       exit(1);
     }
-    endOfIf = endOfStatement;
+    return {endOfStatement, true};
   }
 
-  if (!End(endOfIf + 1)) {
-    error(begin, endOfIf + 1, "expected keyword 'end' after 'if' body");
-    exit(1);
-  }
-  return {endOfIf + 1, true};
+  return {begin, false};
 }
 
 std::tuple<Iterator, bool> SyntacticParser::LogExpr(Iterator begin,

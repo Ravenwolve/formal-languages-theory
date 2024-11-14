@@ -9,6 +9,8 @@ public:
 private:
   using Iterator = std::vector<Lexeme>::iterator;
   auto IfStatement(Iterator begin, Iterator end) -> std::tuple<Iterator, bool>;
+  auto AlterIfStatement(Iterator begin,
+                        Iterator end) -> std::tuple<Iterator, bool>;
   auto LogExpr(Iterator begin, Iterator end) -> std::tuple<Iterator, bool>;
   auto LogExprInner(Iterator begin, Iterator end) -> std::tuple<Iterator, bool>;
   auto RelExpr(Iterator begin, Iterator end) -> std::tuple<Iterator, bool>;
