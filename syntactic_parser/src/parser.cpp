@@ -89,38 +89,55 @@ std::tuple<Iterator, bool> SyntacticParser::LogExpr(Iterator begin,
     return {begin, false};
   }
 
-  Iterator endOfLastLogExprInner = endOfLogExprInner;
-  while (LogOp1(endOfLastLogExprInner + 1)) {
-    const auto &[endOfLogExprInner, success] =
-        LogExprInner(endOfLastLogExprInner + 2, end);
-    if (!success) {
-      error(begin, endOfLogExprInner,
-            "expected relation expression in logical expression");
-      exit(1);
-    }
-    endOfLastLogExprInner = endOfLogExprInner;
+  const auto &[endOfLogExprTail, success2] =
+      LogExprTail(endOfLogExprInner + 1, end);
+  return {success2 ? endOfLogExprTail : endOfLogExprInner, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::LogExprTail(Iterator begin,
+                                                        Iterator end) {
+  if (!LogOp1(begin)) {
+    return {begin, false};
   }
-  return {endOfLastLogExprInner, true};
+
+  const auto &[endOfLogExprInner, success] = LogExprInner(begin + 1, end);
+  if (!success) {
+    error(begin, endOfLogExprInner,
+          "expected relation expression in logical expression");
+    exit(1);
+  }
+  const auto &[endOfLogExprTail, success2] =
+      LogExprTail(endOfLogExprInner + 1, end);
+  return {success2 ? endOfLogExprTail : endOfLogExprInner, true};
 }
 
 std::tuple<Iterator, bool> SyntacticParser::LogExprInner(Iterator begin,
                                                          Iterator end) {
-  const auto &[endOfRelExpr, success] = RelExpr(begin, end);
-  if (!success) {
+  const auto &[endOfRelExpr, success1] = RelExpr(begin, end);
+  if (!success1) {
     return {begin, false};
   }
 
-  Iterator endOfLastRelExpr = endOfRelExpr;
-  while (LogOp2(endOfLastRelExpr + 1)) {
-    const auto &[endOfRelExpr, success] = RelExpr(endOfLastRelExpr + 2, end);
-    if (!success) {
-      error(begin, endOfRelExpr,
-            "expected relation expression in logical expression");
-      exit(1);
-    }
-    endOfLastRelExpr = endOfRelExpr;
+  const auto &[endOfLogExprInnerTail, success2] =
+      LogExprInnerTail(endOfRelExpr + 1, end);
+  return {success2 ? endOfLogExprInnerTail : endOfRelExpr, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::LogExprInnerTail(Iterator begin,
+                                                             Iterator end) {
+  if (!LogOp2(begin)) {
+    return {begin, false};
   }
-  return {endOfLastRelExpr, true};
+
+  const auto &[endOfRelExpr, success] = RelExpr(begin + 1, end);
+  if (!success) {
+    error(begin, endOfRelExpr,
+          "expected relation expression in logical expression");
+    exit(1);
+  }
+  const auto &[endOfLogExprInnerTail, success2] =
+      LogExprInnerTail(endOfRelExpr + 1, end);
+  return {success2 ? endOfLogExprInnerTail : endOfRelExpr, true};
 }
 
 std::tuple<Iterator, bool> SyntacticParser::RelExpr(Iterator begin,
@@ -199,43 +216,58 @@ std::tuple<Iterator, bool> SyntacticParser::ArithExpr(Iterator begin,
     return {begin, false};
   }
 
-  Iterator endOfLastArithExprInner = endOfArithExprInner;
-  while (ArithOp1(endOfLastArithExprInner + 1)) {
-    const auto &[endOfArithExprInner, success] =
-        ArithExprInner(endOfLastArithExprInner + 2, end);
-    if (!success) {
-      error(begin, endOfLastArithExprInner,
-            "expected arithmetic expression after arithmetic operator");
-      exit(1);
-    }
-    endOfLastArithExprInner = endOfArithExprInner;
+  const auto &[endOfArithExprTail, success2] =
+      ArithExprTail(endOfArithExprInner + 1, end);
+  return {success2 ? endOfArithExprTail : endOfArithExprInner, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::ArithExprTail(Iterator begin,
+                                                          Iterator end) {
+  if (!ArithOp1(begin)) {
+    return {begin, false};
   }
-  return {endOfLastArithExprInner, true};
+
+  const auto &[endOfArithExprInner, success] = ArithExprInner(begin + 1, end);
+  if (!success) {
+    error(begin, endOfArithExprInner,
+          "expected operand in arithmetic expression");
+    exit(1);
+  }
+  const auto &[endOfArithExprTail, success2] =
+      ArithExprTail(endOfArithExprInner + 1, end);
+  return {success2 ? endOfArithExprTail : endOfArithExprInner, true};
 }
 
 std::tuple<Iterator, bool> SyntacticParser::ArithExprInner(Iterator begin,
                                                            Iterator end) {
-  const auto &[endOfScopedArithExpr, success] = ScopedArithExpr(begin, end);
-  if (!success) {
+  const auto &[endOfArithUnit, success1] = ArithUnit(begin, end);
+  if (!success1) {
     return {begin, false};
   }
 
-  Iterator endOfLastArithExpr = endOfScopedArithExpr;
-  while (ArithOp2(endOfLastArithExpr + 1)) {
-    const auto &[endOfArithExprInner, success] =
-        ArithExprInner(endOfLastArithExpr + 2, end);
-    if (!success) {
-      error(begin, endOfLastArithExpr,
-            "expected arithmetic expression after arithmetic operator");
-      exit(1);
-    }
-    endOfLastArithExpr = endOfArithExprInner;
-  }
-  return {endOfLastArithExpr, true};
+  const auto &[endOfArithExprInnerTail, success2] =
+      ArithExprInnerTail(endOfArithUnit + 1, end);
+  return {success2 ? endOfArithExprInnerTail : endOfArithUnit, true};
 }
 
-std::tuple<Iterator, bool> SyntacticParser::ScopedArithExpr(Iterator begin,
-                                                            Iterator end) {
+std::tuple<Iterator, bool> SyntacticParser::ArithExprInnerTail(Iterator begin,
+                                                               Iterator end) {
+  if (!ArithOp2(begin)) {
+    return {begin, false};
+  }
+
+  const auto &[endOfArithUnit, success] = ArithUnit(begin + 1, end);
+  if (!success) {
+    error(begin, endOfArithUnit, "expected operand in arithmetic expression");
+    exit(1);
+  }
+  const auto &[endOfArithExprInnerTail, success2] =
+      ArithExprInnerTail(endOfArithUnit + 1, end);
+  return {success2 ? endOfArithExprInnerTail : endOfArithUnit, true};
+}
+
+std::tuple<Iterator, bool> SyntacticParser::ArithUnit(Iterator begin,
+                                                      Iterator end) {
   if (Operand(begin)) {
     return {begin, true};
   }
@@ -251,7 +283,8 @@ std::tuple<Iterator, bool> SyntacticParser::ScopedArithExpr(Iterator begin,
   }
 
   if (!ClosingParenthesis(endOfArithExpr + 1)) {
-    error(begin, endOfArithExpr, "expected ')' after arithmetic expression");
+    error(begin, endOfArithExpr + 1,
+          "expected ')' after arithmetic expression");
     exit(1);
   }
 
