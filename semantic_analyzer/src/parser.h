@@ -1,26 +1,34 @@
 #pragma once
 
 #include "../../lexical_analyzer/src/analyzer.h"
-#include "entrycollection.h"
+#include "entry.h"
 
 class SyntacticParser {
 public:
-  std::tuple<std::vector<Entry>, bool> Parse(const std::string &text);
+  auto Parse(const std::string &text) -> std::tuple<std::vector<Entry>, bool>;
 
 private:
   using Iterator = std::vector<Lexeme>::iterator;
   auto IfStatement(Iterator begin, Iterator end) -> std::tuple<Iterator, bool>;
+  auto AlterIfStatement(Iterator begin,
+                        Iterator end) -> std::tuple<Iterator, bool>;
   auto LogExpr(Iterator begin, Iterator end) -> std::tuple<Iterator, bool>;
+  auto LogExprTail(Iterator begin, Iterator end) -> std::tuple<Iterator, bool>;
   auto LogExprInner(Iterator begin, Iterator end) -> std::tuple<Iterator, bool>;
+  auto LogExprInnerTail(Iterator begin,
+                        Iterator end) -> std::tuple<Iterator, bool>;
   auto RelExpr(Iterator begin, Iterator end) -> std::tuple<Iterator, bool>;
   auto RelOp(Iterator begin) -> bool;
   auto Statement(Iterator begin, Iterator end) -> std::tuple<Iterator, bool>;
   auto Instruction(Iterator begin, Iterator end) -> std::tuple<Iterator, bool>;
   auto ArithExpr(Iterator begin, Iterator end) -> std::tuple<Iterator, bool>;
+  auto ArithExprTail(Iterator begin,
+                     Iterator end) -> std::tuple<Iterator, bool>;
   auto ArithExprInner(Iterator begin,
                       Iterator end) -> std::tuple<Iterator, bool>;
-  auto ScopedArithExpr(Iterator begin,
-                       Iterator end) -> std::tuple<Iterator, bool>;
+  auto ArithExprInnerTail(Iterator begin,
+                          Iterator end) -> std::tuple<Iterator, bool>;
+  auto ArithUnit(Iterator begin, Iterator end) -> std::tuple<Iterator, bool>;
   auto ArithOp1(Iterator begin) -> bool;
   auto ArithOp2(Iterator begin) -> bool;
   auto LogOp1(Iterator begin) -> bool;
@@ -42,5 +50,5 @@ private:
 
 public:
   LexicalAnalyzer lexer;
-  PolishInverseRecord sequence;
+  std::vector<Entry> entries;
 };
