@@ -94,12 +94,26 @@ int Interpreter::Value(const std::variant<int, std::string> &operand) {
   return value;
 }
 
+void Interpreter::InitializeVariables(const std::vector<Entry> &pir) {
+  for (auto &entry : pir) {
+    if (entry.type == Entry::EntryType::VARIABLE) {
+      const auto &varName = std::get<std::string>(entry.data);
+      if (!variables.contains(varName)) {
+        std::cout << varName << "=";
+        std::cin >> variables[varName];
+      }
+    }
+  }
+}
+
 bool Interpreter::Interprete(const std::string &text) {
   const auto &[record, success] = parser.Parse(text);
   if (!success) {
     return false;
   }
   auto entries = std::move(record);
+
+  InitializeVariables(entries);
 
   for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
     Debug(*iter);
